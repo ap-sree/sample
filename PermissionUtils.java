@@ -35,6 +35,7 @@ public class PermissionUtils {
     
     /**
      * Check if user is Organization Admin for any parent organization (recursive)
+     * Also checks if user has org admin role in any org within the branch
      */
     public static boolean isOrgAdminOfParentOrg(String uid, String orgDN) {
         // Check current org
@@ -49,13 +50,59 @@ public class PermissionUtils {
                 return true;
             }
             String nextParent = getParentOrgDN(parentDN);
-            if (nextParent.equals(parentDN)) {
+            if (nextParent == null || nextParent.equals(parentDN)) {
                 break; // Avoid infinite loop
             }
             parentDN = nextParent;
         }
         
         return false;
+    }
+    
+    /**
+     * Check if user has any org admin role in a specific branch
+     */
+    public static boolean hasOrgAdminRoleInBranch(String uid, String branch) {
+        String branchDN = ldapDAO.getBranchDN(branch);
+        if (branchDN == null) {
+            return false;
+        }
+        
+        // Search for all organizations in the branch and check if user is admin of any
+        java.util.List<com.novell.ldap.LDAPEntry> orgEntries = ldapDAO.search(branchDN, 
+            com.novell.ldap.LDAPConnection.SCOPE_SUB, LdapConstants.SEARCH_OU_FILTER);
+        
+        for (com.novell.ldap.LDAPEntry entry : orgEntries) {
+            String entryDN = entry.getDN();
+            // Skip "ou=groups" entries
+            if (entryDN.contains("ou=groups,ou=groups") || entryDN.startsWith("ou=groups,")) {
+                continue;
+            }
+            
+            if (isOrgAdmin(uid, entryDN)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if user can read organizations in a branch
+     */
+    public static boolean canReadOrganizations(String uid, String branch, String orgName) {
+        if (isSuperAdmin(uid)) {
+            return true;
+        }
+        
+        if (orgName != null) {
+            // Check specific organization
+            String orgDN = buildOrgDN(orgName, branch);
+            return orgDN != null && canViewOrganization(uid, orgDN);
+        } else {
+            // Check if user has any org admin role in the branch
+            return hasOrgAdminRoleInBranch(uid, branch);
+        }
     }
     
     /**
@@ -108,6 +155,13 @@ public class PermissionUtils {
      */
     public static boolean canViewOrganization(String uid, String orgDN) {
         return isSuperAdmin(uid) || isOrgAdminOfParentOrg(uid, orgDN);
+    }
+    
+    /**
+     * Check if user can view groups in a branch
+     */
+    public static boolean canViewGroups(String uid, String branch) {
+        return isSuperAdmin(uid) || hasOrgAdminRoleInBranch(uid, branch);
     }
     
     /**
@@ -189,6 +243,35 @@ public class PermissionUtils {
         if (orgDN != null) {
             return "cn=" + groupName + ",ou=groups," + orgDN;
         }
+        return null;
+    }
+    
+    /**
+     * Find organization DN by searching in the branch (handles sub-orgs)
+     */
+    public static String findOrgDNInBranch(String orgName, String branch) {
+        String branchDN = ldapDAO.getBranchDN(branch);
+        if (branchDN == null) {
+            return null;
+        }
+        
+        // Search recursively in branch for organization with this name
+        java.util.List<com.novell.ldap.LDAPEntry> entries = ldapDAO.search(branchDN, 
+            com.novell.ldap.LDAPConnection.SCOPE_SUB, LdapConstants.SEARCH_OU_FILTER);
+        
+        for (com.novell.ldap.LDAPEntry entry : entries) {
+            String entryDN = entry.getDN();
+            // Skip "ou=groups" entries
+            if (entryDN.contains("ou=groups,ou=groups") || entryDN.startsWith("ou=groups,")) {
+                continue;
+            }
+            
+            String currentOrgName = extractOrgName(entryDN);
+            if (orgName.equals(currentOrgName)) {
+                return entryDN;
+            }
+        }
+        
         return null;
     }
     
