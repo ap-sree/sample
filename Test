@@ -1,0 +1,134 @@
+import javax.naming.directory.SearchResult;
+import javax.naming.NamingException;
+import javax.naming.NamingEnumeration;
+import java.util.*;
+
+public class OrganizationManager {
+    
+    private static final int MAX_SEARCH_LIMIT = 1000;
+    
+    public List<LDAPEntry> getOrganizations(String baseDn, String filter, boolean nested) {
+        List<LDAPEntry> orgArray = new ArrayList<>();
+        
+        try {
+            // Get domain admin results
+            LDAPSearchResults userOrgAdminResults = GroupDao.getLDAPSearchResults(baseDn, 
+                String.format("ORG_ADMIN_FILTER=%s", filter), true);
+            
+            // Get organization search results  
+            LDAPSearchResults searchResults = GroupDao.getLDAPSearchResults(baseDn, 
+                filter, nested);
+            
+            if (searchResults != null && searchResults.hasMore()) {
+                LDAPEntry ldapEntry = null;
+                
+                while (searchResults.hasMore()) {
+                    ldapEntry = searchResults.next();
+                    
+                    if (ldapEntry != null && ldapEntry.getDN() != null) {
+                        
+                        // Check if user is super admin
+                        if (token.isSuperAdmin()) {
+                            String[] parentOU = ldapEntry.getDN().split("cn=DomainAdministrator,");
+                            
+                            if (parentOU.length >= 1) {
+                                // Add the matched organization entry
+                                LDAPEntry matchedOrgEntry = findMatchingOrgEntry(parentOU[1], userOrgAdminResults);
+                                if (matchedOrgEntry != null) {
+                                    orgArray.add(matchedOrgEntry);
+                                }
+                            }
+                        } else {
+                            // Add the organization entry directly
+                            orgArray.add(ldapEntry);
+                        }
+                    }
+                    
+                    // Prevent infinite loops
+                    if (orgArray.size() > MAX_SEARCH_LIMIT + 1) {
+                        break;
+                    }
+                }
+            }
+            
+            return orgArray;
+            
+        } catch (Exception e) {
+            System.err.println("Error processing LDAP results: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+    
+    /**
+     * Find matching organization entry from the org admin results
+     */
+    private LDAPEntry findMatchingOrgEntry(String parentOU, LDAPSearchResults userOrgAdminResults) {
+        try {
+            if (userOrgAdminResults != null && userOrgAdminResults.hasMore()) {
+                while (userOrgAdminResults.hasMore()) {
+                    LDAPEntry orgEntry = userOrgAdminResults.next();
+                    
+                    if (orgEntry != null && orgEntry.getDN() != null) {
+                        String orgDN = orgEntry.getDN();
+                        
+                        // Check if this org entry matches the parent OU
+                        if (isMatchingOrganization(orgDN, parentOU)) {
+                            return orgEntry;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error finding matching org entry: " + e.getMessage());
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Check if organization DN matches the parent OU
+     */
+    private boolean isMatchingOrganization(String orgDN, String parentOU) {
+        if (orgDN == null || parentOU == null) {
+            return false;
+        }
+        
+        // Extract OU from org DN and compare with parent OU
+        String orgOU = extractOU(orgDN);
+        String targetOU = extractOU(parentOU);
+        
+        return orgOU != null && targetOU != null && orgOU.equalsIgnoreCase(targetOU);
+    }
+    
+    /**
+     * Extract OU from LDAP DN
+     */
+    private String extractOU(String dn) {
+        if (dn != null && dn.toLowerCase().contains("ou=")) {
+            String[] parts = dn.split(",");
+            for (String part : parts) {
+                String trimmed = part.trim();
+                if (trimmed.toLowerCase().startsWith("ou=")) {
+                    return trimmed.substring(3);
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Extract CN from LDAP DN
+     */
+    private String extractCN(String dn) {
+        if (dn != null && dn.toLowerCase().contains("cn=")) {
+            String[] parts = dn.split(",");
+            for (String part : parts) {
+                String trimmed = part.trim();
+                if (trimmed.toLowerCase().startsWith("cn=")) {
+                    return trimmed.substring(3);
+                }
+            }
+        }
+        return null;
+    }
+}
