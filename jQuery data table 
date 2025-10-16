@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom DataTable Card Layout</title>
+    
+    <!-- jQuery -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    
+    <!-- DataTables CSS & JS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/css/jquery.dataTables.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/js/jquery.dataTables.min.js"></script>
+    
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+            margin: 0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        /* Controls wrapper */
+        .controls {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        /* Card layout styles */
+        #customTable_wrapper {
+            background: transparent;
+        }
+        
+        #customTable {
+            width: 100% !important;
+        }
+        
+        #customTable tbody tr {
+            background: white;
+            margin-bottom: 15px;
+            display: block;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            overflow: hidden;
+        }
+        
+        #customTable tbody tr:hover {
+            border-color: #999;
+        }
+        
+        #customTable tbody td {
+            display: flex;
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        #customTable tbody td:last-child {
+            border-bottom: none;
+        }
+        
+        #customTable tbody td .field-content {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+        
+        #customTable tbody td:before {
+            content: attr(data-label);
+            font-weight: 600;
+            color: #555;
+            display: inline-block;
+            width: 120px;
+            font-size: 13px;
+        }
+        
+        #customTable tbody td:after {
+            content: attr(data-value);
+            color: #333;
+            font-size: 14px;
+            flex: 1;
+        }
+        
+        /* Action buttons */
+        .action-btn {
+            background: #666;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 3px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        
+        .action-btn:hover {
+            background: #555;
+        }
+        
+        .action-btn.edit {
+            background: #4CAF50;
+        }
+        
+        .action-btn.edit:hover {
+            background: #45a049;
+        }
+        
+        .action-btn.delete {
+            background: #f44336;
+        }
+        
+        .action-btn.delete:hover {
+            background: #da190b;
+        }
+        
+        .action-btn.view {
+            background: #2196F3;
+        }
+        
+        .action-btn.view:hover {
+            background: #0b7dda;
+        }
+        
+        #customTable thead {
+            display: none;
+        }
+        
+        /* DataTables controls styling */
+        .dataTables_wrapper .dataTables_length,
+        .dataTables_wrapper .dataTables_filter {
+            margin: 0;
+        }
+        
+        .dataTables_wrapper .dataTables_filter input {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 6px 10px;
+            margin-left: 10px;
+        }
+        
+        .dataTables_wrapper .dataTables_filter input:focus {
+            outline: none;
+            border-color: #999;
+        }
+        
+        .dataTables_wrapper .dataTables_length select {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 6px 25px 6px 10px;
+            margin: 0 10px;
+        }
+        
+        .dataTables_wrapper .dataTables_info,
+        .dataTables_wrapper .dataTables_paginate {
+            background: white;
+            padding: 12px 15px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            margin-top: 15px;
+        }
+        
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            border-radius: 4px;
+            padding: 6px 12px;
+            margin: 0 2px;
+            border: 1px solid #ddd;
+            background: white;
+        }
+        
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+            background: #f5f5f5;
+            border-color: #999;
+        }
+        
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: #666;
+            color: white !important;
+            border-color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>DataTable Card View</h2>
+        
+        <div class="controls">
+            <div class="dataTables_length" id="customTable_length"></div>
+            <div class="dataTables_filter" id="customTable_filter"></div>
+        </div>
+        
+        <table id="customTable" class="display">
+            <thead>
+                <tr>
+                    <th>Column A</th>
+                    <th>Column B</th>
+                    <th>Column C</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td data-label="Column A" data-value="A1">
+                        <button class="action-btn view" onclick="viewAction('A1')">View</button>
+                    </td>
+                    <td data-label="Column B" data-value="B1">
+                        <button class="action-btn edit" onclick="editAction('B1')">Edit</button>
+                    </td>
+                    <td data-label="Column C" data-value="C1">
+                        <button class="action-btn delete" onclick="deleteAction('C1')">Delete</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td data-label="Column A" data-value="A2">
+                        <button class="action-btn view" onclick="viewAction('A2')">View</button>
+                    </td>
+                    <td data-label="Column B" data-value="B2">
+                        <button class="action-btn edit" onclick="editAction('B2')">Edit</button>
+                    </td>
+                    <td data-label="Column C" data-value="C2">
+                        <button class="action-btn delete" onclick="deleteAction('C2')">Delete</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td data-label="Column A" data-value="A3">
+                        <button class="action-btn view" onclick="viewAction('A3')">View</button>
+                    </td>
+                    <td data-label="Column B" data-value="B3">
+                        <button class="action-btn edit" onclick="editAction('B3')">Edit</button>
+                    </td>
+                    <td data-label="Column C" data-value="C3">
+                        <button class="action-btn delete" onclick="deleteAction('C3')">Delete</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td data-label="Column A" data-value="A4">
+                        <button class="action-btn view" onclick="viewAction('A4')">View</button>
+                    </td>
+                    <td data-label="Column B" data-value="B4">
+                        <button class="action-btn edit" onclick="editAction('B4')">Edit</button>
+                    </td>
+                    <td data-label="Column C" data-value="C4">
+                        <button class="action-btn delete" onclick="deleteAction('C4')">Delete</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td data-label="Column A" data-value="A5">
+                        <button class="action-btn view" onclick="viewAction('A5')">View</button>
+                    </td>
+                    <td data-label="Column B" data-value="B5">
+                        <button class="action-btn edit" onclick="editAction('B5')">Edit</button>
+                    </td>
+                    <td data-label="Column C" data-value="C5">
+                        <button class="action-btn delete" onclick="deleteAction('C5')">Delete</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td data-label="Column A" data-value="A6">
+                        <button class="action-btn view" onclick="viewAction('A6')">View</button>
+                    </td>
+                    <td data-label="Column B" data-value="B6">
+                        <button class="action-btn edit" onclick="editAction('B6')">Edit</button>
+                    </td>
+                    <td data-label="Column C" data-value="C6">
+                        <button class="action-btn delete" onclick="deleteAction('C6')">Delete</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td data-label="Column A" data-value="A7">
+                        <button class="action-btn view" onclick="viewAction('A7')">View</button>
+                    </td>
+                    <td data-label="Column B" data-value="B7">
+                        <button class="action-btn edit" onclick="editAction('B7')">Edit</button>
+                    </td>
+                    <td data-label="Column C" data-value="C7">
+                        <button class="action-btn delete" onclick="deleteAction('C7')">Delete</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td data-label="Column A" data-value="A8">
+                        <button class="action-btn view" onclick="viewAction('A8')">View</button>
+                    </td>
+                    <td data-label="Column B" data-value="B8">
+                        <button class="action-btn edit" onclick="editAction('B8')">Edit</button>
+                    </td>
+                    <td data-label="Column C" data-value="C8">
+                        <button class="action-btn delete" onclick="deleteAction('C8')">Delete</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td data-label="Column A" data-value="A9">
+                        <button class="action-btn view" onclick="viewAction('A9')">View</button>
+                    </td>
+                    <td data-label="Column B" data-value="B9">
+                        <button class="action-btn edit" onclick="editAction('B9')">Edit</button>
+                    </td>
+                    <td data-label="Column C" data-value="C9">
+                        <button class="action-btn delete" onclick="deleteAction('C9')">Delete</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td data-label="Column A" data-value="A10">
+                        <button class="action-btn view" onclick="viewAction('A10')">View</button>
+                    </td>
+                    <td data-label="Column B" data-value="B10">
+                        <button class="action-btn edit" onclick="editAction('B10')">Edit</button>
+                    </td>
+                    <td data-label="Column C" data-value="C10">
+                        <button class="action-btn delete" onclick="deleteAction('C10')">Delete</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <script>
+        let table;
+        
+        $(document).ready(function() {
+            // Initialize DataTable
+            table = $('#customTable').DataTable({
+                paging: true,
+                searching: true,
+                ordering: true,
+                info: true,
+                pageLength: 5,
+                dom: 'rtip'
+            });
+            
+            // Move controls to custom location
+            $('#customTable_length').html($('.dataTables_length').html());
+            $('#customTable_filter').html($('.dataTables_filter').html());
+            
+            // Bind the select and input to work with DataTable
+            $('#customTable_length select').on('change', function() {
+                table.page.len($(this).val()).draw();
+            });
+            
+            $('#customTable_filter input').on('keyup', function() {
+                table.search($(this).val()).draw();
+            });
+        });
+        
+        // Action button functions
+        function viewAction(value) {
+            alert('View action clicked for: ' + value);
+            // Add your custom view logic here
+        }
+        
+        function editAction(value) {
+            alert('Edit action clicked for: ' + value);
+            // Add your custom edit logic here
+        }
+        
+        function deleteAction(value) {
+            if (confirm('Are you sure you want to delete: ' + value + '?')) {
+                alert('Delete action confirmed for: ' + value);
+                // Add your custom delete logic here
+            }
+        }
+    </script>
+</body>
+</html>
