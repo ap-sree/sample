@@ -92,3 +92,61 @@ OUTER APPLY (
 ) trig
 WHERE t.type IN ('U', 'V')  -- U = User Table, V = View
 ORDER BY t.type_desc, t.name, c.column_id;
+
+SELECT 
+    OBJECT_SCHEMA_NAME(f.object_id) AS SchemaName,
+    f.name AS FunctionName,
+    f.type_desc AS FunctionType,
+    -- Input parameters
+    STUFF((
+        SELECT ', ' + p2.name + ' ' + TYPE_NAME(p2.user_type_id) +
+            CASE 
+                WHEN TYPE_NAME(p2.user_type_id) IN ('varchar', 'char', 'varbinary', 'binary') 
+                    THEN '(' + CASE WHEN p2.max_length = -1 THEN 'MAX' ELSE CAST(p2.max_length AS VARCHAR) END + ')'
+                WHEN TYPE_NAME(p2.user_type_id) IN ('nvarchar', 'nchar') 
+                    THEN '(' + CASE WHEN p2.max_length = -1 THEN 'MAX' ELSE CAST(p2.max_length/2 AS VARCHAR) END + ')'
+                WHEN TYPE_NAME(p2.user_type_id) IN ('decimal', 'numeric') 
+                    THEN '(' + CAST(p2.precision AS VARCHAR) + ',' + CAST(p2.scale AS VARCHAR) + ')'
+                ELSE ''
+            END
+        FROM sys.parameters p2
+        WHERE p2.object_id = f.object_id AND p2.parameter_id > 0
+        ORDER BY p2.parameter_id
+        FOR XML PATH('')
+    ), 1, 2, '') AS InputParameters,
+    -- Return type for scalar functions
+    (SELECT TYPE_NAME(p.user_type_id) +
+        CASE 
+            WHEN TYPE_NAME(p.user_type_id) IN ('varchar', 'char', 'varbinary', 'binary') 
+                THEN '(' + CASE WHEN p.max_length = -1 THEN 'MAX' ELSE CAST(p.max_length AS VARCHAR) END + ')'
+            WHEN TYPE_NAME(p.user_type_id) IN ('nvarchar', 'nchar') 
+                THEN '(' + CASE WHEN p.max_length = -1 THEN 'MAX' ELSE CAST(p.max_length/2 AS VARCHAR) END + ')'
+            WHEN TYPE_NAME(p.user_type_id) IN ('decimal', 'numeric') 
+                THEN '(' + CAST(p.precision AS VARCHAR) + ',' + CAST(p.scale AS VARCHAR) + ')'
+            ELSE ''
+        END
+     FROM sys.parameters p 
+     WHERE p.object_id = f.object_id AND p.parameter_id = 0
+    ) AS ScalarReturnType,
+    -- Return columns for table-valued functions
+    STUFF((
+        SELECT ', ' + c2.name + ' ' + TYPE_NAME(c2.user_type_id) +
+            CASE 
+                WHEN TYPE_NAME(c2.user_type_id) IN ('varchar', 'char', 'varbinary', 'binary') 
+                    THEN '(' + CASE WHEN c2.max_length = -1 THEN 'MAX' ELSE CAST(c2.max_length AS VARCHAR) END + ')'
+                WHEN TYPE_NAME(c2.user_type_id) IN ('nvarchar', 'nchar') 
+                    THEN '(' + CASE WHEN c2.max_length = -1 THEN 'MAX' ELSE CAST(c2.max_length/2 AS VARCHAR) END + ')'
+                WHEN TYPE_NAME(c2.user_type_id) IN ('decimal', 'numeric') 
+                    THEN '(' + CAST(c2.precision AS VARCHAR) + ',' + CAST(c2.scale AS VARCHAR) + ')'
+                ELSE ''
+            END
+        FROM sys.columns c2
+        WHERE c2.object_id = f.object_id
+        ORDER BY c2.column_id
+        FOR XML PATH('')
+    ), 1, 2, '') AS TableReturnColumns,
+    f.create_date AS CreateDate,
+    f.modify_date AS ModifyDate
+FROM sys.objects f
+WHERE f.type IN ('FN', 'IF', 'TF', 'FS', 'FT')
+ORDER BY f.name;
