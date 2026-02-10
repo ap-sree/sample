@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My 1st Identity App</title>
+</head>
+<body>
+    <h2>Google Identity Platform - Email/Pass</h2>
+    
+    <input type="email" id="email" placeholder="Email"><br>
+    <input type="password" id="password" placeholder="Password"><br><br>
+    
+    <button id="signUp">Sign Up</button>
+    <button id="signIn">Sign In</button>
+    <button id="signOut" style="display:none;">Sign Out</button>
+
+    <p id="status">Status: Not logged in</p>
+
+    <script type="module">
+        // 1. Import the SDKs from Google's CDN
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } 
+            from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        // 2. Your Project Configuration (Copy this from GCP Console > Identity Platform > Setup Details)
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // 3. Initialize Firebase and Auth
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // --- Auth Logic ---
+
+        // Sign Up
+        document.getElementById('signUp').onclick = () => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            createUserWithEmailAndPassword(auth, email, pass)
+                .catch(err => alert(err.message));
+        };
+
+        // Sign In
+        document.getElementById('signIn').onclick = () => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            signInWithEmailAndPassword(auth, email, pass)
+                .catch(err => alert(err.message));
+        };
+
+        // Sign Out
+        document.getElementById('signOut').onclick = () => signOut(auth);
+
+        // 4. Listen for auth state changes (Updates UI automatically)
+        onAuthStateChanged(auth, (user) => {
+            const status = document.getElementById('status');
+            const signOutBtn = document.getElementById('signOut');
+            if (user) {
+                status.innerText = "Logged in as: " + user.email;
+                signOutBtn.style.display = "block";
+            } else {
+                status.innerText = "Status: Not logged in";
+                signOutBtn.style.display = "none";
+            }
+        });
+    </script>
+</body>
+</html>
