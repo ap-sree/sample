@@ -1,0 +1,50 @@
+import express, { Request, Response } from 'express';
+import * as admin from 'firebase-admin';
+import path from 'path';
+
+// Load your service account key
+import serviceAccount from '../serviceAccountKey.json';
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount as admin.ServiceAccount)
+});
+
+const app = express();
+app.set('view engine', 'ejs');
+app.use(express.urlencoded({ extended: true })); // To parse form data
+
+// --- ROUTES ---
+
+// 1. List Users
+app.get('/', async (req: Request, res: Response) => {
+    try {
+        const listUsers = await admin.auth().listUsers(100);
+        res.render('index', { users: listUsers.users, error: null });
+    } catch (err: any) {
+        res.render('index', { users: [], error: err.message });
+    }
+});
+
+// 2. Create User
+app.post('/create', async (req: Request, res: Response) => {
+    const { email, password } = req.body;
+    try {
+        await admin.auth().createUser({ email, password });
+        res.redirect('/');
+    } catch (err: any) {
+        const listUsers = await admin.auth().listUsers(100);
+        res.render('index', { users: listUsers.users, error: err.message });
+    }
+});
+
+// 3. Delete User
+app.post('/delete/:uid', async (req: Request, res: Response) => {
+    try {
+        await admin.auth().deleteUser(req.params.uid);
+        res.redirect('/');
+    } catch (err: any) {
+        res.status(500).send(err.message);
+    }
+});
+
+app.listen(3000, () => console.log('Admin UI running at http://localhost:3000'));
