@@ -1,0 +1,148 @@
+<dependencies>
+    <dependency>
+        <groupId>com.squareup.okhttp3</groupId>
+        <artifactId>okhttp</artifactId>
+        <version>4.12.0</version>
+    </dependency>
+    <dependency>
+        <groupId>org.json</groupId>
+        <artifactId>json</artifactId>
+        <version>20231013</version>
+    </dependency>
+</dependencies>
+
+import okhttp3.*;
+import org.json.*;
+
+import java.io.*;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+
+public class GraphAppLoginReport {
+
+    private static final String CLIENT_ID = "YOUR_CLIENT_ID";
+    private static final String CLIENT_SECRET = "YOUR_CLIENT_SECRET";
+    private static final String TENANT_ID = "YOUR_TENANT_ID";
+
+    private static final OkHttpClient client = new OkHttpClient();
+
+    public static void main(String[] args) throws Exception {
+
+        String token = getAccessToken();
+
+        // Read appIds from txt
+        Set<String> fileAppIds = readAppIds("input.txt");
+
+        // Map<appId, lastLogin>
+        Map<String, String> resultMap = fetchAllData(token);
+
+        // Generate final output
+        generateOutput(resultMap, fileAppIds);
+    }
+
+    // 🔐 Get Token
+    private static String getAccessToken() throws Exception {
+
+        String url = "https://login.microsoftonline.com/" + TENANT_ID + "/oauth2/v2.0/token";
+
+        RequestBody body = new FormBody.Builder()
+                .add("client_id", CLIENT_ID)
+                .add("client_secret", CLIENT_SECRET)
+                .add("scope", "https://graph.microsoft.com/.default")
+                .add("grant_type", "client_credentials")
+                .build();
+
+        Request request = new Request.Builder().url(url).post(body).build();
+
+        Response response = client.newCall(request).execute();
+        JSONObject json = new JSONObject(response.body().string());
+
+        return json.getString("access_token");
+    }
+
+    // 📥 Fetch all pages
+    private static Map<String, String> fetchAllData(String token) throws Exception {
+
+        Map<String, String> map = new HashMap<>();
+
+        String last10Days = OffsetDateTime.now().minusDays(10)
+                .format(DateTimeFormatter.ISO_DATE_TIME);
+
+        String url = "https://graph.microsoft.com/beta/reports/servicePrincipalSignInActivities"
+                + "?$filter=lastSignInActivity/lastSignInDateTime ge " + last10Days;
+
+        while (url != null) {
+
+            Request request = new Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer " + token)
+                    .build();
+
+            Response response = client.newCall(request).execute();
+            JSONObject json = new JSONObject(response.body().string());
+
+            JSONArray values = json.getJSONArray("value");
+
+            for (int i = 0; i < values.length(); i++) {
+                JSONObject obj = values.getJSONObject(i);
+
+                String appId = obj.optString("appId");
+
+                if (obj.has("lastSignInActivity")) {
+                    JSONObject last = obj.getJSONObject("lastSignInActivity");
+                    String lastLogin = last.optString("lastSignInDateTime", "");
+
+                    map.put(appId, lastLogin);
+                }
+            }
+
+            url = json.has("@odata.nextLink") ? json.getString("@odata.nextLink") : null;
+        }
+
+        return map;
+    }
+
+    // 📄 Read input file
+    private static Set<String> readAppIds(String filePath) throws Exception {
+
+        Set<String> set = new HashSet<>();
+
+        BufferedReader br = new BufferedReader(new FileReader(filePath));
+        String line;
+
+        while ((line = br.readLine()) != null) {
+            set.add(line.trim());
+        }
+        br.close();
+
+        return set;
+    }
+
+    // 📊 Generate output
+    private static void generateOutput(Map<String, String> apiData, Set<String> fileAppIds) throws Exception {
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter("output.csv"));
+
+        writer.write("APP_ID,Available_in_File,Last_Login\n");
+
+        String currentDate = LocalDate.now().toString();
+
+        for (Map.Entry<String, String> entry : apiData.entrySet()) {
+
+            String appId = entry.getKey();
+            String lastLogin = entry.getValue();
+
+            String available = fileAppIds.contains(appId) ? "Y" : "N";
+
+            String finalDate = (lastLogin == null || lastLogin.isEmpty())
+                    ? ""
+                    : currentDate;
+
+            writer.write(appId + "," + available + "," + finalDate + "\n");
+        }
+
+        writer.close();
+        System.out.println("✅ Output generated: output.csv");
+    }
+}
