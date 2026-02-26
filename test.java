@@ -10,13 +10,21 @@ public class NovellLdapMoveCN {
     private static final String BIND_PASSWORD = "adminSecret";
 
     private static final String CN_VALUE      = "jdoe";
-    private static final String SOURCE_OU_DN  = "ou=contractors,dc=example,dc=com";
-    private static final String TARGET_OU_DN  = "ou=employees,dc=example,dc=com";
+    private static final String DN_A          = "ou=contractors,dc=example,dc=com";
+    private static final String DN_B          = "ou=employees,dc=example,dc=com";
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+        if (args.length < 1 || (!args[0].equals("forward") && !args[0].equals("back"))) {
+            System.out.println("Usage: NovellLdapMoveCN <forward|back>");
+            System.out.println("  forward  ->  moves CN from DN_A to DN_B");
+            System.out.println("  back     ->  moves CN from DN_B to DN_A");
+            System.exit(1);
+        }
 
-        String currentDN = "cn=" + CN_VALUE + "," + SOURCE_OU_DN;
-        String newRDN    = "cn=" + CN_VALUE;
+        boolean isForward  = args[0].equals("forward");
+        String sourceDN    = "cn=" + CN_VALUE + "," + (isForward ? DN_A : DN_B);
+        String targetParent = isForward ? DN_B : DN_A;
+        String newRDN      = "cn=" + CN_VALUE;
 
         LDAPConnection conn = new LDAPConnection();
 
@@ -25,20 +33,17 @@ public class NovellLdapMoveCN {
             conn.bind(LDAPConnection.LDAP_V3, BIND_DN, BIND_PASSWORD.getBytes("UTF8"));
 
             System.out.println("Moving entry...");
-            System.out.println("  From : " + currentDN);
-            System.out.println("  To   : " + newRDN + "," + TARGET_OU_DN);
+            System.out.println("  From : " + sourceDN);
+            System.out.println("  To   : " + newRDN + "," + targetParent);
 
-            conn.rename(currentDN, newRDN, TARGET_OU_DN, true);
+            conn.rename(sourceDN, newRDN, targetParent, true);
 
-            System.out.println("Success! Entry moved to: " + newRDN + "," + TARGET_OU_DN);
+            System.out.println("Success! Entry moved to: " + newRDN + "," + targetParent);
 
         } catch (LDAPException e) {
             System.err.println("LDAP Error: " + e.getMessage());
             System.err.println("Result Code: " + e.getResultCode());
             System.err.println("Matched DN : " + e.getMatchedDN());
-            e.printStackTrace();
-        } catch (Exception e) {
-            System.err.println("General Error: " + e.getMessage());
             e.printStackTrace();
         } finally {
             if (conn.isConnected()) {
